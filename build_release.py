@@ -82,6 +82,10 @@ def write_archive(release: Path, archive: Path) -> None:
         for path in sorted(release.rglob("*")):
             if path.is_file():
                 bundle.write(path, Path("output/release") / path.relative_to(release))
+    archive_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    archive.with_suffix(archive.suffix + ".sha256").write_text(
+        f"{archive_digest}  {archive.name}\n", encoding="ascii",
+    )
 
 
 def build(release: Path, archive: Path) -> None:

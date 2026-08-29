@@ -68,6 +68,8 @@ python3 build_release.py
 
 GitHub Actionsの`Build release artifact`はpush、pull request、手動実行で同じ手順を実行します。成功時は`Tang_Primer_20K_LCD_Case_R4.zip`と展開済み`release/`一式を、commit SHA付きArtifactとして30日間保存します。
 
+`v1.2.3`または`v1.2.3-rc.1`形式のtagをpushすると、`Publish release`が同じテスト・生成・検証を実行し、対応するGitHub Releaseへ配布ZIPとZIP用SHA-256ファイルを添付します。既存Releaseに対する再実行では同名assetを置換します。ハイフンを含むtagはprereleaseとして作成します。
+
 個別確認する場合は、まず一括生成した`build/artifact/release/`を入力に使用します。
 
 ```sh
