@@ -110,6 +110,72 @@ class Mesh:
         for i, j, k in faces:
             self.tri(p[i], p[j], p[k])
 
+    def extruded_rect_union(
+        self,
+        rectangles: Sequence[tuple[float, float, float, float]],
+        z: float,
+        depth: float,
+    ) -> None:
+        """Extrude the geometric union of axis-aligned XY rectangles."""
+        if depth <= 0:
+            raise ValueError("extrusion depth must be positive")
+        valid = [(x, y, w, h) for x, y, w, h in rectangles if w > 0 and h > 0]
+        if not valid:
+            raise ValueError("rectangle union must contain positive-area geometry")
+
+        xs = sorted({value for x, _, w, _ in valid for value in (x, x + w)})
+        ys = sorted({value for _, y, _, h in valid for value in (y, y + h)})
+        occupied = {
+            (xi, yi)
+            for xi, (x1, x2) in enumerate(zip(xs, xs[1:]))
+            for yi, (y1, y2) in enumerate(zip(ys, ys[1:]))
+            if any(
+                x <= (x1 + x2) / 2.0 <= x + w
+                and y <= (y1 + y2) / 2.0 <= y + h
+                for x, y, w, h in valid
+            )
+        }
+
+        pending = set(occupied)
+        components = 0
+        while pending:
+            components += 1
+            stack = [pending.pop()]
+            while stack:
+                xi, yi = stack.pop()
+                for neighbor in ((xi - 1, yi), (xi + 1, yi), (xi, yi - 1), (xi, yi + 1)):
+                    if neighbor in pending:
+                        pending.remove(neighbor)
+                        stack.append(neighbor)
+        if components != 1:
+            raise ValueError(f"rectangle union contains {components} separate parts")
+
+        top = z + depth
+        for xi, yi in sorted(occupied):
+            x1, x2 = xs[xi], xs[xi + 1]
+            y1, y2 = ys[yi], ys[yi + 1]
+            bottom_points = (
+                (x1, y1, z), (x2, y1, z), (x2, y2, z), (x1, y2, z),
+            )
+            top_points = tuple((x, y, top) for x, y, _ in bottom_points)
+            self.tri(bottom_points[0], bottom_points[2], bottom_points[1])
+            self.tri(bottom_points[0], bottom_points[3], bottom_points[2])
+            self.tri(top_points[0], top_points[1], top_points[2])
+            self.tri(top_points[0], top_points[2], top_points[3])
+
+            if (xi - 1, yi) not in occupied:
+                self.tri(bottom_points[0], top_points[0], top_points[3])
+                self.tri(bottom_points[0], top_points[3], bottom_points[3])
+            if (xi + 1, yi) not in occupied:
+                self.tri(bottom_points[1], bottom_points[2], top_points[2])
+                self.tri(bottom_points[1], top_points[2], top_points[1])
+            if (xi, yi - 1) not in occupied:
+                self.tri(bottom_points[0], bottom_points[1], top_points[1])
+                self.tri(bottom_points[0], top_points[1], top_points[0])
+            if (xi, yi + 1) not in occupied:
+                self.tri(bottom_points[3], top_points[3], top_points[2])
+                self.tri(bottom_points[3], top_points[2], bottom_points[2])
+
     def ring(
         self,
         cx: float,

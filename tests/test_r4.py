@@ -40,6 +40,7 @@ class ReleaseGeometryTest(unittest.TestCase):
             self.assertIn("rear_access_frame_common.stl", names)
             self.assertIn("rear_service_cap_common.stl", names)
             self.assertIn("fit_coupon.stl", names)
+            self.assertEqual(r4.PROJECT_VERSION, "1.0.2")
 
     def test_retention_count_and_clearance(self):
         self.assertEqual(r4.RETAINER_CLIP_COUNT, 6)
@@ -69,6 +70,27 @@ class ReleaseGeometryTest(unittest.TestCase):
                 in_lower = cy < 9.0
                 in_upper = cy > r4.CASE_H - 9.0
                 self.assertFalse((in_left or in_right) and (in_lower or in_upper))
+
+    def test_retainers_are_single_watertight_manifold_parts(self):
+        for key in ("43", "50"):
+            topology = verify.mesh_topology(r4.build_retainer_snap(key).triangles)
+            self.assertEqual(topology, {
+                "surface_components": 1,
+                "boundary_edges": 0,
+                "non_manifold_edges": 0,
+                "inconsistent_winding_edges": 0,
+                "duplicate_triangles": 0,
+            })
+
+    def test_topology_check_detects_separate_closed_shells(self):
+        mesh = r4.Mesh("separate_shells")
+        mesh.box(0, 0, 0, 1, 1, 1)
+        mesh.box(2, 0, 0, 1, 1, 1)
+        topology = verify.mesh_topology(mesh.triangles)
+        self.assertEqual(topology["surface_components"], 2)
+        self.assertEqual(topology["boundary_edges"], 0)
+        self.assertEqual(topology["non_manifold_edges"], 0)
+        self.assertEqual(topology["inconsistent_winding_edges"], 0)
 
     def test_official_dock_pitch_is_preserved(self):
         holes = r4.DOCK_HOLES
