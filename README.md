@@ -56,6 +56,26 @@ CIまたは`build_release.py`が生成する`release/`だけが現行成果物�
 
 STLは納品姿勢のまま造形します。リアアクセスフレームは開口フランジ、サービスキャップは背面格子をベッドへ向けます。係止突起は印刷方向に傾斜成長し、水平な空中開始面を持ちません。
 
+## Nix / Podman開発環境
+
+ローカル生成環境は、`sabas0ba/dotfiles`のcommit `fc4cdecc02a6a95c81a259549d3fb9e7df18bb8f`から構築した`sabas0ba/nixos`を基底とします。プロジェクト固有のPython・PDF依存関係とDejaVuフォントは`flake.nix`と`flake.lock`で固定しています。
+
+```sh
+git clone https://github.com/sabas0ba/dotfiles.git
+git -C dotfiles checkout fc4cdecc02a6a95c81a259549d3fb9e7df18bb8f
+podman build --tag sabas0ba/nixos dotfiles
+
+podman build --file Containerfile --tag sabas0ba/tang-primer-dev .
+podman run --rm --volume "$PWD:/workspace" sabas0ba/tang-primer-dev make check
+```
+
+Nixが導入済みのホストでは、コンテナを使用せず次の手順でも実行できます。
+
+```sh
+nix develop
+make check
+```
+
 ## 再生成と検証
 
 一括生成は次のコマンドで行います。`build/artifact/release/`へ全成果物、`build/artifact/Tang_Primer_20K_LCD_Case_R4.zip`へ配布ZIPを生成し、検証レポートがFAILの場合は終了コード1で停止します。
