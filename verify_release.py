@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import defaultdict
 import json
 import math
 from pathlib import Path
@@ -24,6 +25,10 @@ STL_FILES = (
 ASSEMBLY_STL_FILES = (
     "Tang_Primer_20K_Case_R4_Complete_Assembly_43.stl",
     "Tang_Primer_20K_Case_R4_Complete_Assembly_50.stl",
+)
+SINGLE_PART_STL_FILES = (
+    "lcd_retainer_43_snap.stl",
+    "lcd_retainer_50_snap.stl",
 )
 
 
@@ -85,6 +90,49 @@ def unsupported_box_bases(triangles):
     return unsupported
 
 
+def mesh_topology(triangles):
+    """Report exact triangle-edge topology for a generated STL mesh."""
+    edge_triangles = defaultdict(list)
+    edge_directions = defaultdict(list)
+    canonical_triangles = set()
+    duplicate_triangles = 0
+    for index, triangle in enumerate(triangles):
+        canonical = tuple(sorted(triangle))
+        if canonical in canonical_triangles:
+            duplicate_triangles += 1
+        canonical_triangles.add(canonical)
+        for start, end in ((0, 1), (1, 2), (2, 0)):
+            edge = tuple(sorted((triangle[start], triangle[end])))
+            edge_triangles[edge].append(index)
+            edge_directions[edge].append((triangle[start], triangle[end]) == edge)
+
+    adjacent = [set() for _ in triangles]
+    for indexes in edge_triangles.values():
+        for index in indexes:
+            adjacent[index].update(other for other in indexes if other != index)
+    pending = set(range(len(triangles)))
+    components = 0
+    while pending:
+        components += 1
+        stack = [pending.pop()]
+        while stack:
+            index = stack.pop()
+            neighbors = adjacent[index] & pending
+            pending.difference_update(neighbors)
+            stack.extend(neighbors)
+
+    return {
+        "surface_components": components,
+        "boundary_edges": sum(len(indexes) == 1 for indexes in edge_triangles.values()),
+        "non_manifold_edges": sum(len(indexes) > 2 for indexes in edge_triangles.values()),
+        "inconsistent_winding_edges": sum(
+            len(directions) == 2 and directions[0] == directions[1]
+            for directions in edge_directions.values()
+        ),
+        "duplicate_triangles": duplicate_triangles,
+    }
+
+
 def generate(input_dir: Path, drawing: Path, specification: Path, output: Path) -> dict:
     stl_checks = []
     meshes = {}
@@ -93,11 +141,14 @@ def generate(input_dir: Path, drawing: Path, specification: Path, output: Path) 
         meshes[filename] = triangles
         lower, upper = assembly.bounds(triangles)
         finite = all(math.isfinite(value) for triangle in triangles for point in triangle for value in point)
-        stl_checks.append({
+        check = {
             "file": filename, "triangles": len(triangles),
             "bounds_min_mm": lower, "bounds_max_mm": upper,
             "finite": finite, "print_bed_z0": abs(lower[2]) < 1e-6,
-        })
+        }
+        if filename in SINGLE_PART_STL_FILES:
+            check.update(mesh_topology(triangles))
+        stl_checks.append(check)
 
     assembly_stl_checks = []
     for filename in ASSEMBLY_STL_FILES:
@@ -119,6 +170,7 @@ def generate(input_dir: Path, drawing: Path, specification: Path, output: Path) 
     screw_engagement = design.DOCK_SCREW_LENGTH - design.DOCK_PCB_T_NOMINAL
     report = {
         "revision": "R4",
+        "version": design.PROJECT_VERSION,
         "result": "PASS",
         "stl": stl_checks,
         "complete_assembly_stl": assembly_stl_checks,
@@ -148,6 +200,16 @@ def generate(input_dir: Path, drawing: Path, specification: Path, output: Path) 
     }
     checks = report["checks"]
     if not all(item["finite"] and item["print_bed_z0"] for item in stl_checks):
+        report["result"] = "FAIL"
+    if not all(
+        item["surface_components"] == 1
+        and item["boundary_edges"] == 0
+        and item["non_manifold_edges"] == 0
+        and item["inconsistent_winding_edges"] == 0
+        and item["duplicate_triangles"] == 0
+        for item in stl_checks
+        if item["file"] in SINGLE_PART_STL_FILES
+    ):
         report["result"] = "FAIL"
     if not all(
         abs(item["bounds_min_mm"][2] + 1.8) < 1e-4

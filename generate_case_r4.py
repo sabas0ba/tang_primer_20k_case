@@ -30,11 +30,11 @@ from generate_case import (
     TRAY_T,
     WALL,
     add_lcd_locators,
-    add_open_bottom_ring,
     stl_stats,
 )
 
 
+PROJECT_VERSION = Path(__file__).with_name("VERSION").read_text(encoding="ascii").strip()
 PIN_HOLE = 4.30
 REAR_FRAME_DEPTH = 22.00
 SERVICE_CAP_DEPTH = 20.00
@@ -193,41 +193,46 @@ def build_front_shell_snap(spec_key: str) -> Mesh:
     return mesh
 
 
-def add_outer_pressure_ring(mesh: Mesh, thickness: float) -> None:
-    mesh.box(9, 4, 0, 122, 4, thickness)
-    mesh.box(9, CASE_H - 8, 0, 122, 4, thickness)
-    mesh.box(4, 9, 0, 4, CASE_H - 18, thickness)
-    mesh.box(132, 9, 0, 4, CASE_H - 18, thickness)
+def retainer_rectangles(spec_key: str) -> list[tuple[float, float, float, float]]:
+    """Return the connected open-frame profile for an LCD retainer."""
+    spec = LCDS[spec_key]
+    clearance = 0.30
+    outer_w = spec.module_w + clearance
+    outer_h = spec.module_h + clearance
+    inner_w = spec.module_w - 5.0
+    inner_h = spec.module_h - 5.0
+    outer_x = (CASE_W - outer_w) / 2.0
+    outer_y = (CASE_H - outer_h) / 2.0
+    inner_x = (CASE_W - inner_w) / 2.0
+    inner_y = (CASE_H - inner_h) / 2.0
+    gap_left = CASE_W / 2.0 - 40.0
+    gap_right = CASE_W / 2.0 + 40.0
+
+    rectangles = [
+        (outer_x, inner_y + inner_h, outer_w, outer_y + outer_h - (inner_y + inner_h)),
+        (outer_x, inner_y, inner_x - outer_x, inner_h),
+        (inner_x + inner_w, inner_y, outer_x + outer_w - (inner_x + inner_w), inner_h),
+        (outer_x, outer_y, gap_left - outer_x, inner_y - outer_y),
+        (gap_right, outer_y, outer_x + outer_w - gap_right, inner_y - outer_y),
+        (9.0, 4.0, 122.0, 4.0),
+        (9.0, CASE_H - 8.0, 122.0, 4.0),
+        (4.0, 9.0, 4.0, CASE_H - 18.0),
+        (132.0, 9.0, 4.0, CASE_H - 18.0),
+        (8.0, CASE_H / 2.0 - 3.0, outer_x - 7.0, 6.0),
+        (outer_x + outer_w - 1.0, CASE_H / 2.0 - 3.0,
+         132.0 - (outer_x + outer_w - 1.0), 6.0),
+        (24.0, 8.0, 3.0, outer_y - 7.0),
+        (113.0, 8.0, 3.0, outer_y - 7.0),
+        (CASE_W / 2.0 - 3.0, outer_y + outer_h - 1.0, 6.0,
+         CASE_H - 8.0 - (outer_y + outer_h - 1.0)),
+    ]
+    return rectangles
 
 
 def build_retainer_snap(spec_key: str) -> Mesh:
     spec = LCDS[spec_key]
     mesh = Mesh(f"lcd_retainer_{spec_key}_snap")
-    clearance = 0.30
-    add_open_bottom_ring(
-        mesh,
-        spec.module_w + clearance,
-        spec.module_h + clearance,
-        spec.module_w - 5.0,
-        spec.module_h - 5.0,
-        0,
-        spec.retainer_t,
-        80.0,
-    )
-    add_outer_pressure_ring(mesh, spec.retainer_t)
-    panel_x = (CASE_W - (spec.module_w + clearance)) / 2.0
-    panel_y = (CASE_H - (spec.module_h + clearance)) / 2.0
-    mesh.box(8.0, CASE_H / 2.0 - 3.0, 0, panel_x - 7.0, 6.0, spec.retainer_t)
-    mesh.box(panel_x + spec.module_w + clearance - 1.0,
-             CASE_H / 2.0 - 3.0, 0,
-             132.0 - (panel_x + spec.module_w + clearance - 1.0),
-             6.0, spec.retainer_t)
-    mesh.box(CASE_W / 2.0 - 3.0, 8.0, 0, 6.0,
-             panel_y - 7.0, spec.retainer_t)
-    mesh.box(CASE_W / 2.0 - 3.0,
-             panel_y + spec.module_h + clearance - 1.0, 0, 6.0,
-             CASE_H - 8.0 - (panel_y + spec.module_h + clearance - 1.0),
-             spec.retainer_t)
+    mesh.extruded_rect_union(retainer_rectangles(spec_key), 0, spec.retainer_t)
     return mesh
 
 
@@ -442,6 +447,7 @@ def generate(out_dir: Path) -> list[dict[str, object]]:
         stats.append(stl_stats(path))
     manifest = {
         "design": "Tang Primer 20K integrated LCD enclosure release R4",
+        "version": PROJECT_VERSION,
         "units": "mm",
         "status": "prototype - physical fit required before production use",
         "case": {

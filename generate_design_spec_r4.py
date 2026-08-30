@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -23,7 +24,10 @@ from generate_case_r4 import ACCESS_OPENING, PIN_TIP, REAR_FRAME_DEPTH, SERVICE_
 
 
 FONT = "DejaVuSans"
-FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+FONT_PATH = os.environ.get(
+    "DEJAVU_FONT_PATH",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+)
 BLUE = colors.HexColor("#246B9B")
 GREEN = colors.HexColor("#348A52")
 ORANGE = colors.HexColor("#C97524")

@@ -1,6 +1,6 @@
 # Tang Primer 20K Dock + 4.3/5.0-inch LCD case R4
 
-Tang Primer 20K Core装着済み公式Dockと、公式4.3インチまたは5.0インチRGB LCDを一体化するFDMケースです。R4は外形を140.00 x 112.00 x 53.80 mmへ拡張し、固定されたリアアクセスフレームと、工具なしで着脱できる20 mmサービスキャップを追加しました。
+Tang Primer 20K Core装着済み公式Dockと、公式4.3インチまたは5.0インチRGB LCDを一体化するFDMケースです。現行バージョンはv1.0.2です。R4は外形を140.00 x 112.00 x 53.80 mmへ拡張し、固定されたリアアクセスフレームと、工具なしで着脱できる20 mmサービスキャップを追加しました。
 
 ## 正式成果物
 
@@ -55,6 +55,26 @@ CIまたは`build_release.py`が生成する`release/`だけが現行成果物�
 - サポート: 不要
 
 STLは納品姿勢のまま造形します。リアアクセスフレームは開口フランジ、サービスキャップは背面格子をベッドへ向けます。係止突起は印刷方向に傾斜成長し、水平な空中開始面を持ちません。
+
+## Nix / Podman開発環境
+
+ローカル生成環境は、`sabas0ba/dotfiles`のcommit `fc4cdecc02a6a95c81a259549d3fb9e7df18bb8f`から構築した`sabas0ba/nixos`を基底とします。プロジェクト固有のPython・PDF依存関係とDejaVuフォントは`flake.nix`と`flake.lock`で固定しています。
+
+```sh
+git clone https://github.com/sabas0ba/dotfiles.git
+git -C dotfiles checkout fc4cdecc02a6a95c81a259549d3fb9e7df18bb8f
+podman build --tag sabas0ba/nixos dotfiles
+
+podman build --file Containerfile --tag sabas0ba/tang-primer-dev .
+podman run --rm --volume "$PWD:/workspace" sabas0ba/tang-primer-dev make check
+```
+
+Nixが導入済みのホストでは、コンテナを使用せず次の手順でも実行できます。
+
+```sh
+nix develop
+make check
+```
 
 ## 再生成と検証
 

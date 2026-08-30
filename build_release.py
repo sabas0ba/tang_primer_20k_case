@@ -20,6 +20,7 @@ REFERENCE_SHA256 = "86f9a3d3d35259efc6da8f8f69338404213f196d88631f9772347e5200d2
 ARCHIVE_NAME = "Tang_Primer_20K_LCD_Case_R4.zip"
 
 SOURCE_FILES = (
+    "VERSION",
     "README.md",
     "DESIGN_R4.md",
     "assembly_r4.py",
